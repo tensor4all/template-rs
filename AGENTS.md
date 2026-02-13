@@ -166,6 +166,26 @@ impl_for_type!(f32, f64, Complex32, Complex64);
 
 **Never push/create PR without user approval.**
 
+### Fast Trial-and-Error CI
+
+The goal is to minimize the feedback loop between push and merge. Two key settings:
+
+1. **`concurrency` with `cancel-in-progress`** — Every workflow file must have:
+   ```yaml
+   concurrency:
+     group: ${{ github.workflow }}-${{ github.ref }}
+     cancel-in-progress: true
+   ```
+   This automatically cancels outdated CI runs when a new push arrives on the same branch, avoiding wasted time and runner resources.
+
+2. **Auto-merge** — Always enable auto-merge when creating a PR:
+   ```bash
+   gh pr merge --auto --squash --delete-branch
+   ```
+   Once CI passes, the PR merges immediately without manual intervention. This lets you move on to the next task while CI runs.
+
+Together these ensure: push a fix → old run cancelled → new run starts → passes → auto-merged, all without idle waiting.
+
 ### Pre-PR Checks
 
 Before creating a PR, always run these checks locally:
@@ -208,3 +228,28 @@ gh pr view <NUM> --json state  # Never push to merged PR
 gh pr checks <NUM>
 gh run view <RUN_ID> --log-failed
 ```
+
+### Post-PR CI Monitoring
+
+**After pushing a PR, actively poll CI status every 30 seconds until all jobs complete.**
+
+```bash
+gh pr checks <NUM> --watch --fail-fast
+```
+
+If `--watch` is unavailable, poll manually:
+
+```bash
+# Loop: check every 30 seconds
+gh pr checks <NUM>
+# Repeat until all jobs pass or any job fails
+```
+
+**When any job fails:**
+
+1. Immediately inspect the failure: `gh run view <RUN_ID> --log-failed`
+2. Fix the issue locally
+3. Run the failing check locally to confirm the fix
+4. Commit, push, and resume monitoring
+
+Do NOT wait for all other jobs to finish before investigating — fix the first failure immediately.
