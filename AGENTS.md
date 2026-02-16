@@ -4,7 +4,7 @@ Read `README.md` before starting work.
 
 ## General Guidelines
 
-- Use same language as past conversations (Japanese if previous was Japanese)
+- Always think/reason in English (set thinking language to English)
 - Source code and docs in English
 - **Bug fixing**: When a bug is discovered, always check related files for similar bugs and propose to the user to inspect them
 
@@ -128,6 +128,10 @@ fn test_all_algorithms() {
     }
 }
 ```
+
+## Documentation
+
+Public API doc comments (`///`) must include a minimal but sufficient example showing how to use the API. Keep examples short — just enough for a human to understand usage.
 
 ## API Design
 
