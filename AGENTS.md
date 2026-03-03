@@ -24,6 +24,10 @@ Read `README.md` before starting work.
 
 **Use workspace dependencies for libraries shared across multiple crates** to keep versions consistent. Define the dependency once in the workspace `Cargo.toml` under `[workspace.dependencies]`, then reference it with `dep.workspace = true` in each crate's `Cargo.toml`.
 
+- **For public/standalone repositories, never commit sibling local `path` dependencies** like `../other-repo/crate` in `Cargo.toml`. They break CI and `cargo doc` deploy on GitHub Actions runners.
+- Use resolvable dependencies in CI (`crates.io` or `git` with pinned `rev`) for anything outside the current repository.
+- If you need local development overrides, keep them local-only (do not commit), and verify CI uses reproducible sources.
+
 ## Error Handling
 
 - `anyhow` for internal error handling and context
