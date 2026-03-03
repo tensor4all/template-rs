@@ -20,6 +20,16 @@ Read `README.md` before starting work.
 
 **Always run `cargo fmt --all` before committing changes.**
 
+### File Organization
+
+Keep source files **small and focused** — one logical concern per file. Avoid monolithic files that grow beyond ~500 lines. Benefits:
+
+- **Abstraction review**: module boundaries make the public/private API surface explicit and easier to audit
+- **Parallel editing**: multiple agents (or humans) can work on separate files without merge conflicts
+- **Navigation**: smaller files are faster to read and search
+
+When a file grows large, split it by functionality (e.g., parsing, plan computation, execution, public API, AD rules) rather than by arbitrary line count.
+
 ## Dependencies
 
 **Use workspace dependencies for libraries shared across multiple crates** to keep versions consistent. Define the dependency once in the workspace `Cargo.toml` under `[workspace.dependencies]`, then reference it with `dep.workspace = true` in each crate's `Cargo.toml`.
