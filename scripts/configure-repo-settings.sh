@@ -20,6 +20,10 @@ log() {
 }
 
 resolve_settings_path() {
+  if [[ "$SETTINGS_PATH" == "ai/repo-settings.json" && -f "ai/repo-settings.local.json" ]]; then
+    printf '%s\n' "ai/repo-settings.local.json"
+    return
+  fi
   if [[ -f "$SETTINGS_PATH" ]]; then
     printf '%s\n' "$SETTINGS_PATH"
     return

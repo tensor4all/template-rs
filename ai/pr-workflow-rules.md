@@ -23,6 +23,7 @@ If formatting fails, run `cargo fmt --all` and rerun the checks.
 
 - New repositories created from this template must enable GitHub auto-merge.
 - The default branch must be protected by the full CI status-check set defined in `ai/repo-settings.json`.
+- Repositories with non-template CI job names may override that file locally via `ai/repo-settings.local.json`.
 - `createpr` must re-check these repository settings before creating each PR.
 
 ## Documentation Consistency
