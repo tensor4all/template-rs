@@ -19,6 +19,18 @@ log() {
   printf '%s\n' "$*"
 }
 
+resolve_settings_path() {
+  if [[ -f "$SETTINGS_PATH" ]]; then
+    printf '%s\n' "$SETTINGS_PATH"
+    return
+  fi
+  if [[ "$SETTINGS_PATH" == "ai/repo-settings.json" && -f "ai/vendor/template-rs/repo-settings.json" ]]; then
+    printf '%s\n' "ai/vendor/template-rs/repo-settings.json"
+    return
+  fi
+  printf '%s\n' "$SETTINGS_PATH"
+}
+
 json_get() {
   python3 - "$1" "$2" <<'PY'
 import json
@@ -84,6 +96,8 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+SETTINGS_PATH="$(resolve_settings_path)"
 
 if [[ ! -f "$SETTINGS_PATH" ]]; then
   log "settings file not found: $SETTINGS_PATH"

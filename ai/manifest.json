@@ -11,7 +11,7 @@
     {
       "id": "repo-settings",
       "source": "ai/repo-settings.json",
-      "target": "ai/vendor/template-rs/repo-settings.json"
+      "target": "ai/repo-settings.json"
     },
     {
       "id": "common-agent-rules",

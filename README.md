@@ -45,6 +45,7 @@ If you prefer copies over symlinks, copy the directory instead.
 After bootstrap, generated repositories should contain:
 
 - vendored shared rules under `ai/vendor/template-rs/`
+- repo settings under `ai/repo-settings.json`
 - repo-local workflow scripts under `scripts/`
 - project-local Claude commands under `.claude/commands/`
 - local wrappers `AGENTS.md` and `CLAUDE.md`
