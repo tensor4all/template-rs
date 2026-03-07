@@ -13,7 +13,7 @@ def main():
     # Read thresholds
     with open(thresholds_path) as f:
         config = json.load(f)
-    default_threshold = config.get("default", 80)
+    default_threshold = config["default"]
     file_thresholds = config.get("files", {})
 
     # Read coverage JSON from stdin or first argument
