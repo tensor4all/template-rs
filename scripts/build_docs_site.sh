@@ -88,7 +88,22 @@ cargo doc --workspace --no-deps
 echo "[2/5] Copying rustdoc output"
 cp -a "$DOC_ROOT/." "$API_DIR/"
 
-echo "[3/5] Rendering API landing page"
+echo "[3/5] Generating optional dependency graph"
+if [[ -x "$ROOT_DIR/scripts/gen_dep_graph.py" || -f "$ROOT_DIR/scripts/gen_dep_graph.py" ]]; then
+  if command -v dot >/dev/null 2>&1; then
+    python3 "$ROOT_DIR/scripts/gen_dep_graph.py" --root-dir "$ROOT_DIR" | dot -Tsvg > "$API_DIR/dep_graph.svg"
+  else
+    echo "  Warning: graphviz (dot) not found; dependency graph skipped."
+    if [[ "${CI:-}" == "true" ]]; then
+      echo "  graphviz is required in CI to render the dependency graph."
+      exit 1
+    fi
+  fi
+else
+  echo "  No scripts/gen_dep_graph.py found; skipping dependency graph."
+fi
+
+echo "[4/5] Rendering API landing page"
 OVERVIEW_HTML="$(render_overview_html)"
 CRATE_INVENTORY_HTML="$(render_crate_inventory_html)"
 {
@@ -124,7 +139,7 @@ FOOTER
 
 python3 "$ROOT_DIR/scripts/check-docs-site.py" --root-dir "$ROOT_DIR" --site-index "$API_DIR/index.html"
 
-echo "[4/5] Rendering design docs if configured"
+echo "[5/5] Rendering design docs if configured"
 if [[ -f "$ROOT_DIR/docs/_quarto.yml" ]]; then
   if command -v quarto >/dev/null 2>&1; then
     quarto render "$ROOT_DIR/docs"
@@ -139,7 +154,7 @@ else
   echo "  No docs/_quarto.yml found; skipping design docs render."
 fi
 
-echo "[5/5] Generating site top page"
+echo "[6/6] Generating site top page"
 REPO_TITLE="$(basename "$ROOT_DIR")"
 if [[ -d "$DESIGN_DIR" ]]; then
   DESIGN_CARD='
