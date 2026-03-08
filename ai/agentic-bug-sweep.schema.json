@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "report_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action": {
+      "type": "string",
+      "enum": ["create", "update", "merge", "none"]
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["title", "body", "labels"]
+    },
+    "canonical_issue_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "related_issue_numbers": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "duplicates_to_close": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "duplicate_comment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issue_comment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "related_comment": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": ["summary", "report_path", "action"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create"
+          }
+        },
+        "required": ["action"]
+      },
+      "then": {
+        "required": ["issue"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "update"
+          }
+        },
+        "required": ["action"]
+      },
+      "then": {
+        "required": ["canonical_issue_number", "issue_comment"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "merge"
+          }
+        },
+        "required": ["action"]
+      },
+      "then": {
+        "required": [
+          "canonical_issue_number",
+          "issue_comment",
+          "duplicates_to_close",
+          "duplicate_comment"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": ["related_issue_numbers"]
+      },
+      "then": {
+        "required": ["related_comment"]
+      }
+    }
+  ]
+}
