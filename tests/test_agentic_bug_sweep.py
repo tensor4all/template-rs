@@ -36,25 +36,43 @@ def setup_fake_repo(root: Path, *, gh_script: str, codex_script: str) -> None:
 
 
 def run_bug_sweep(
-    root: Path, *, iterations: str = "1", max_consecutive_none: str = "1"
+    root: Path,
+    *,
+    iterations: str = "1",
+    max_consecutive_none: str = "1",
+    repo: str = "tensor4all/template-rs",
+    workdir: Path | None = None,
+    repo_url: str | None = None,
+    ref: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PATH"] = f"{root / 'bin'}:{env['PATH']}"
     env["FAKE_STATE_DIR"] = str(root / "state")
+    if extra_env:
+        env.update(extra_env)
+
+    args = [
+        "bash",
+        "scripts/agentic-bug-sweep.sh",
+        "--iterations",
+        iterations,
+        "--max-consecutive-none",
+        max_consecutive_none,
+        "--repo",
+        repo,
+    ]
+    if workdir is None and repo_url is None:
+        workdir = root
+    if workdir is not None:
+        args.extend(["--workdir", str(workdir)])
+    if repo_url is not None:
+        args.extend(["--repo-url", repo_url])
+    if ref is not None:
+        args.extend(["--ref", ref])
 
     return subprocess.run(
-        [
-            "bash",
-            "scripts/agentic-bug-sweep.sh",
-            "--iterations",
-            iterations,
-            "--max-consecutive-none",
-            max_consecutive_none,
-            "--repo",
-            "tensor4all/template-rs",
-            "--workdir",
-            str(root),
-        ],
+        args,
         cwd=root,
         text=True,
         capture_output=True,
@@ -63,14 +81,21 @@ def run_bug_sweep(
     )
 
 
-def codex_script_for_payloads(payloads: list[dict[str, object]]) -> str:
+def codex_script_for_payloads(
+    payloads: list[dict[str, object]], *, stdout_lines: list[str] | None = None
+) -> str:
     responses_text = json.dumps(payloads)
+    stdout_prefix = ""
+    if stdout_lines:
+        stdout_prefix = "".join(f"printf '%s\\n' {line!r}\n" for line in stdout_lines)
     return (
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
+        f"{stdout_prefix}"
         "printf 'call\\n' >>\"${FAKE_STATE_DIR:?}/codex.log\"\n"
         "printf '%q ' \"$@\" >>\"${FAKE_STATE_DIR:?}/codex-args.log\"\n"
         "printf '\\n' >>\"${FAKE_STATE_DIR:?}/codex-args.log\"\n"
+        "printf '%s\\n' \"${TMPDIR:-}\" >>\"${FAKE_STATE_DIR:?}/codex-tmpdir.log\"\n"
         "counter_file=\"${FAKE_STATE_DIR:?}/codex-counter.txt\"\n"
         "if [[ ! -f \"$counter_file\" ]]; then\n"
         "  printf '0\\n' >\"$counter_file\"\n"
@@ -105,8 +130,10 @@ def codex_script_for_payloads(payloads: list[dict[str, object]]) -> str:
     )
 
 
-def codex_script_for_payload(payload: dict[str, object]) -> str:
-    return codex_script_for_payloads([payload])
+def codex_script_for_payload(
+    payload: dict[str, object], *, stdout_lines: list[str] | None = None
+) -> str:
+    return codex_script_for_payloads([payload], stdout_lines=stdout_lines)
 
 
 def gh_script_with_mutations(*, fail_comment: bool = False) -> str:
@@ -192,6 +219,7 @@ class AgenticBugSweepTests(unittest.TestCase):
         prompt = PROMPT_PATH.read_text(encoding="utf-8")
         self.assertIn("open bug issues", prompt)
         self.assertIn("prior bug-sweep reports", prompt)
+        self.assertIn("test-feature", prompt)
         self.assertIn("related_issue_numbers", prompt)
 
         self.assertTrue(SCHEMA_PATH.is_file(), msg=f"missing schema file: {SCHEMA_PATH}")
@@ -200,7 +228,10 @@ class AgenticBugSweepTests(unittest.TestCase):
         action_enum = schema["properties"]["action"]["enum"]
         self.assertEqual(action_enum, ["create", "update", "merge", "none"])
         self.assertIn("related_issue_numbers", schema["properties"])
-        self.assertIn("if", schema["allOf"][0])
+        self.assertNotIn("allOf", schema)
+        self.assertNotIn("if", schema)
+        self.assertEqual(set(schema["required"]), set(schema["properties"]))
+        self.assertEqual(schema["properties"]["issue"]["type"], ["object", "null"])
 
     def test_help_path(self) -> None:
         result = subprocess.run(
@@ -215,6 +246,8 @@ class AgenticBugSweepTests(unittest.TestCase):
         self.assertIn("--iterations", result.stdout)
         self.assertIn("--max-consecutive-none", result.stdout)
         self.assertIn("--repo", result.stdout)
+        self.assertIn("--repo-url", result.stdout)
+        self.assertIn("--ref", result.stdout)
         self.assertIn("--workdir", result.stdout)
 
     def test_single_iteration_create(self) -> None:
@@ -234,9 +267,9 @@ class AgenticBugSweepTests(unittest.TestCase):
                             "labels": ["bug", "prio/p1"],
                         },
                     }
-                ),
+                , stdout_lines=["codex progress chatter"]),
             )
-            result = run_bug_sweep(root)
+            result = run_bug_sweep(root, workdir=root)
 
             self.assertEqual(result.returncode, 0, msg=f"stdout={result.stdout}\nstderr={result.stderr}")
             self.assertTrue((root / "target" / "agentic-bug-sweep" / "context" / "open-issues.json").is_file())
@@ -245,6 +278,76 @@ class AgenticBugSweepTests(unittest.TestCase):
             codex_invocations = (root / "state" / "codex-args.log").read_text(encoding="utf-8")
             self.assertIn("exec", codex_invocations)
             self.assertIn("--output-schema", codex_invocations)
+            self.assertIn("--sandbox", codex_invocations)
+            self.assertIn("workspace-write", codex_invocations)
+            codex_tmpdir = (root / "state" / "codex-tmpdir.log").read_text(encoding="utf-8").strip()
+            self.assertEqual(codex_tmpdir, str(root / "target" / "agentic-bug-sweep" / "tmp"))
+
+    def test_remote_repo_url_clone_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            setup_fake_repo(
+                root,
+                gh_script=gh_script_with_mutations(),
+                codex_script=codex_script_for_payload(
+                    {
+                        "summary": "No actionable bug found",
+                        "report_path": "docs/test-reports/agentic-bug-sweep/bug-sweep-20260308-remote.md",
+                        "action": "none",
+                    }
+                ),
+            )
+
+            remote_source = root / "remote-source"
+            (remote_source / "docs" / "test-reports" / "agentic-bug-sweep").mkdir(parents=True)
+            (remote_source / "README.md").write_text("# remote repo\n", encoding="utf-8")
+            (remote_source / "docs" / "test-reports" / "agentic-bug-sweep" / "existing.md").write_text(
+                "existing report\n", encoding="utf-8"
+            )
+
+            write_executable(
+                root / "bin" / "git",
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    printf '%s\\n' "$*" >>"${FAKE_STATE_DIR:?}/git.log"
+
+                    if [[ "$1" == "clone" ]]; then
+                      dest="${@: -1}"
+                      mkdir -p "$(dirname "$dest")"
+                      cp -R "${REMOTE_SOURCE_DIR:?}" "$dest"
+                      exit 0
+                    fi
+
+                    printf 'unexpected git invocation: %s\\n' "$*" >&2
+                    exit 1
+                    """
+                ),
+            )
+
+            result = run_bug_sweep(
+                root,
+                repo="tensor4all/demo-repo",
+                repo_url="https://github.com/tensor4all/demo-repo.git",
+                ref="main",
+                extra_env={"REMOTE_SOURCE_DIR": str(remote_source)},
+            )
+
+            self.assertEqual(result.returncode, 0, msg=f"stdout={result.stdout}\nstderr={result.stderr}")
+
+            git_log = (root / "state" / "git.log").read_text(encoding="utf-8")
+            self.assertIn("clone --depth 1 --branch main https://github.com/tensor4all/demo-repo.git", git_log)
+
+            codex_invocations = (root / "state" / "codex-args.log").read_text(encoding="utf-8")
+            self.assertIn(str(root / "target" / "agentic-bug-sweep" / "repos" / "tensor4all-demo-repo"), codex_invocations)
+            gh_log = (root / "state" / "gh.log").read_text(encoding="utf-8")
+            self.assertIn("issue list --repo tensor4all/demo-repo", gh_log)
+
+            prior_reports = (root / "target" / "agentic-bug-sweep" / "context" / "prior-reports.txt").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("existing.md", prior_reports)
 
     def test_github_actions(self) -> None:
         cases = [
@@ -510,6 +613,20 @@ class AgenticBugSweepTests(unittest.TestCase):
                 "expect_summary": False,
                 "expect_iteration_output": False,
                 "precreate_lock": True,
+            },
+            {
+                "name": "failed_invalid_contract",
+                "gh_script": gh_script_with_mutations(),
+                "codex_script": codex_script_for_payload(
+                    {
+                        "summary": "Bad create payload",
+                        "report_path": "docs/test-reports/bug-sweep-20260308-000022.md",
+                        "action": "create",
+                    }
+                ),
+                "expected_stop_reason": "failed_invalid_contract",
+                "expect_summary": True,
+                "expect_iteration_output": True,
             },
         ]
 

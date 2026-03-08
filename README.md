@@ -24,6 +24,18 @@ Requirements:
 - `codex`
 - `gh`
 
+Primary mode is remote-repository analysis:
+
+```bash
+bash scripts/agentic-bug-sweep.sh \
+  --repo-url https://github.com/tensor4all/tenferro-rs \
+  --ref main \
+  --iterations 20 \
+  --max-consecutive-none 3
+```
+
+`--workdir` remains available as a local override when you already have a checked-out repository.
+
 The workflow always stops after the configured `--iterations` limit or after `--max-consecutive-none` dry runs in a row.
 
 Artifacts:

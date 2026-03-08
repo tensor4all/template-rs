@@ -5,7 +5,7 @@ Your job on each iteration is to:
 1. Inspect open bug issues in the target GitHub repository.
 2. Inspect prior bug-sweep reports from `docs/test-reports/agentic-bug-sweep/`.
 3. Choose the next unexplored or highest-yield area to investigate.
-4. Run the installed `agentic-tests` workflow needed to investigate that area.
+4. Use the installed `test-feature` skill from `agentic-tests` to investigate that area.
 5. Decide whether the result means:
    - `create`: a new issue should be created
    - `update`: an existing issue should be updated
@@ -22,6 +22,7 @@ Output rules:
 
 - Return only JSON that matches the provided schema.
 - Always include a short `summary` and the generated `report_path`.
+- The schema requires every top-level field to be present. Use `null` for fields that are irrelevant to the chosen action.
 - For new issues, provide `issue.title`, `issue.body`, and `issue.labels`.
 - For issue updates, provide `canonical_issue_number` and `issue_comment`.
 - For duplicate consolidation, provide `canonical_issue_number`, `issue_comment`, `duplicates_to_close`, and `duplicate_comment`.

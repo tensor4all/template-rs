@@ -4,8 +4,12 @@ set -euo pipefail
 ITERATIONS=""
 MAX_CONSECUTIVE_NONE=""
 REPO=""
+REPO_URL=""
+REF=""
 TARGET_WORKDIR=""
+TARGET_REPORT_ROOT=""
 MODEL=""
+LAST_ITERATION_OUTPUT_PATH=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -23,6 +27,8 @@ Options:
   --iterations N              Maximum number of Codex iterations to run
   --max-consecutive-none N    Stop after N consecutive `none` results
   --repo OWNER/REPO           Target GitHub repository slug
+  --repo-url URL              Remote repository URL to clone and analyze
+  --ref REF                   Git ref to clone when using --repo-url
   --workdir PATH              Target repository working directory
   --model MODEL               Optional model override for `codex exec`
   --help                      Show this help text
@@ -41,8 +47,18 @@ require_command() {
 }
 
 ensure_inputs() {
-  if [[ -z "$ITERATIONS" || -z "$MAX_CONSECUTIVE_NONE" || -z "$REPO" || -z "$TARGET_WORKDIR" ]]; then
+  if [[ -z "$ITERATIONS" || -z "$MAX_CONSECUTIVE_NONE" ]]; then
     log "missing required arguments"
+    usage
+    exit 1
+  fi
+  if [[ -z "$TARGET_WORKDIR" && -z "$REPO_URL" ]]; then
+    log "either --workdir or --repo-url is required"
+    usage
+    exit 1
+  fi
+  if [[ -z "$REPO" && -z "$REPO_URL" ]]; then
+    log "either --repo or --repo-url is required"
     usage
     exit 1
   fi
@@ -57,10 +73,6 @@ ensure_inputs() {
 }
 
 ensure_paths() {
-  if [[ ! -d "$TARGET_WORKDIR" ]]; then
-    log "target workdir does not exist: $TARGET_WORKDIR"
-    exit 1
-  fi
   if [[ ! -f "$PROMPT_PATH" ]]; then
     log "missing prompt file: $PROMPT_PATH"
     exit 1
@@ -69,18 +81,29 @@ ensure_paths() {
     log "missing schema file: $SCHEMA_PATH"
     exit 1
   fi
+  if [[ ! -d "$TARGET_WORKDIR" ]]; then
+    log "target workdir does not exist: $TARGET_WORKDIR"
+    exit 1
+  fi
+  TARGET_REPORT_ROOT="${TARGET_WORKDIR}/docs/test-reports/agentic-bug-sweep"
+  mkdir -p "$TARGET_REPORT_ROOT"
 }
 
 ensure_tools() {
   require_command codex
   require_command gh
   require_command python3
+  if [[ -n "$REPO_URL" ]]; then
+    require_command git
+  fi
   gh auth status >/dev/null 2>&1
 }
 
 prepare_state_dirs() {
   mkdir -p "${STATE_ROOT}/context"
   mkdir -p "${STATE_ROOT}/output"
+  mkdir -p "${STATE_ROOT}/repos"
+  mkdir -p "${STATE_ROOT}/tmp"
   mkdir -p "$REPORT_ROOT"
 }
 
@@ -106,7 +129,61 @@ capture_open_issues() {
 }
 
 capture_prior_reports() {
-  find "$REPORT_ROOT" -maxdepth 1 -type f -name '*.md' | sort >"${STATE_ROOT}/context/prior-reports.txt"
+  find "$TARGET_REPORT_ROOT" -maxdepth 1 -type f -name '*.md' | sort >"${STATE_ROOT}/context/prior-reports.txt"
+}
+
+parse_repo_slug_from_url() {
+  python3 - "$1" <<'PY'
+import re
+import sys
+from urllib.parse import urlparse
+
+url = sys.argv[1]
+if "://" in url:
+    parsed = urlparse(url)
+    path = parsed.path
+else:
+    match = re.match(r"^[^@]+@[^:]+:(.+)$", url)
+    if not match:
+        raise SystemExit(f"unsupported repo url: {url}")
+    path = "/" + match.group(1)
+
+parts = [part for part in path.split("/") if part]
+if len(parts) < 2:
+    raise SystemExit(f"unsupported repo url: {url}")
+owner, repo = parts[-2], parts[-1]
+if repo.endswith(".git"):
+    repo = repo[:-4]
+print(f"{owner}/{repo}")
+PY
+}
+
+resolve_target_repo() {
+  local clone_dir
+  local -a clone_args
+
+  if [[ -z "$REPO" && -n "$REPO_URL" ]]; then
+    REPO="$(parse_repo_slug_from_url "$REPO_URL")"
+  fi
+
+  if [[ -n "$TARGET_WORKDIR" ]]; then
+    TARGET_WORKDIR="$(cd "$TARGET_WORKDIR" && pwd)"
+    return
+  fi
+
+  clone_dir="${STATE_ROOT}/repos/${REPO//\//-}"
+  rm -rf "$clone_dir"
+  clone_args=(clone --depth 1)
+  if [[ -n "$REF" ]]; then
+    clone_args+=(--branch "$REF")
+  fi
+  clone_args+=("$REPO_URL" "$clone_dir")
+
+  if ! git "${clone_args[@]}"; then
+    log "failed to clone repository: $REPO_URL"
+    exit 1
+  fi
+  TARGET_WORKDIR="$clone_dir"
 }
 
 validate_json_file() {
@@ -326,6 +403,39 @@ fail_run() {
   exit 1
 }
 
+validate_result_contract() {
+  local result_path="$1"
+  local action
+
+  action="$(json_get_string "$result_path" "action")"
+  case "$action" in
+    create)
+      json_has_value "$result_path" "issue.title" || fail_run "failed_invalid_contract" "missing issue.title for create action"
+      json_has_value "$result_path" "issue.body" || fail_run "failed_invalid_contract" "missing issue.body for create action"
+      json_has_value "$result_path" "issue.labels" || fail_run "failed_invalid_contract" "missing issue.labels for create action"
+      ;;
+    update)
+      json_has_value "$result_path" "canonical_issue_number" || fail_run "failed_invalid_contract" "missing canonical_issue_number for update action"
+      json_has_value "$result_path" "issue_comment" || fail_run "failed_invalid_contract" "missing issue_comment for update action"
+      ;;
+    merge)
+      json_has_value "$result_path" "canonical_issue_number" || fail_run "failed_invalid_contract" "missing canonical_issue_number for merge action"
+      json_has_value "$result_path" "issue_comment" || fail_run "failed_invalid_contract" "missing issue_comment for merge action"
+      json_has_value "$result_path" "duplicates_to_close" || fail_run "failed_invalid_contract" "missing duplicates_to_close for merge action"
+      json_has_value "$result_path" "duplicate_comment" || fail_run "failed_invalid_contract" "missing duplicate_comment for merge action"
+      ;;
+    none)
+      ;;
+    *)
+      fail_run "failed_invalid_contract" "unsupported action returned by codex: ${action}"
+      ;;
+  esac
+
+  if json_has_value "$result_path" "related_issue_numbers"; then
+    json_has_value "$result_path" "related_comment" || fail_run "failed_invalid_contract" "missing related_comment for related issues"
+  fi
+}
+
 run_iteration() {
   local iteration_number="$1"
   local iteration_tag
@@ -340,21 +450,23 @@ run_iteration() {
 Target repository: ${REPO}
 Target workdir: ${TARGET_WORKDIR}
 Open issues JSON: ${STATE_ROOT}/context/open-issues.json
-Prior bug-sweep report index: ${STATE_ROOT}/context/prior-reports.txt"
+Prior bug-sweep report index: ${STATE_ROOT}/context/prior-reports.txt
+Target report root: ${TARGET_REPORT_ROOT}"
 
-  codex_args=(exec --cd "$TARGET_WORKDIR" --output-schema "$SCHEMA_PATH" -o "$output_path")
+  codex_args=(exec --cd "$TARGET_WORKDIR" --sandbox workspace-write --output-schema "$SCHEMA_PATH" -o "$output_path")
   if [[ -n "$MODEL" ]]; then
     codex_args+=(--model "$MODEL")
   fi
   codex_args+=("$prompt_text")
 
-  if ! codex "${codex_args[@]}"; then
+  if ! TMPDIR="${STATE_ROOT}/tmp" codex "${codex_args[@]}"; then
     fail_run "failed_codex_exec" "codex exec failed on iteration ${iteration_number}"
   fi
   if ! validate_json_file "$output_path"; then
     fail_run "failed_invalid_json" "invalid JSON returned by codex on iteration ${iteration_number}"
   fi
-  printf '%s\n' "$output_path"
+  validate_result_contract "$output_path"
+  LAST_ITERATION_OUTPUT_PATH="$output_path"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -369,6 +481,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --repo)
       REPO="$2"
+      shift 2
+      ;;
+    --repo-url)
+      REPO_URL="$2"
+      shift 2
+      ;;
+    --ref)
+      REF="$2"
       shift 2
       ;;
     --workdir)
@@ -392,21 +512,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 ensure_inputs
-ensure_paths
 ensure_tools
 prepare_state_dirs
-acquire_lock
-
 iteration_number=0
 consecutive_none_count=0
 stop_reason=""
+acquire_lock
+resolve_target_repo
+ensure_paths
 
 while (( iteration_number < ITERATIONS )); do
   iteration_number=$((iteration_number + 1))
   capture_open_issues
   capture_prior_reports
 
-  iteration_output_path="$(run_iteration "$iteration_number")"
+  run_iteration "$iteration_number"
+  iteration_output_path="$LAST_ITERATION_OUTPUT_PATH"
   iteration_action="$(json_get_string "$iteration_output_path" "action")"
   apply_action "$iteration_output_path" "$iteration_action"
 
