@@ -33,7 +33,7 @@ bash scripts/new-repo.sh --repo <name> --description "<short description>"
   - local clone
   - GitHub repo settings configuration for auto-merge and required status checks
   - initial agent-assets sync
-  - baseline verification, including release-mode tests and docs-site completeness
+  - baseline verification, including release-mode coverage verification and docs-site completeness
 
 3. Report:
   - created GitHub URL
