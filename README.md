@@ -15,6 +15,22 @@ Template repository for Rust workspace projects in the tensor4all organization.
 2. Add crates to `Cargo.toml` `members`
 3. Adjust `coverage-thresholds.json` as needed
 
+## Agentic Bug Sweep
+
+Use `bash scripts/agentic-bug-sweep.sh` to run a bounded headless Codex bug sweep that can create, update, or consolidate GitHub issues.
+
+Requirements:
+
+- `codex`
+- `gh`
+
+The workflow always stops after the configured `--iterations` limit or after `--max-consecutive-none` dry runs in a row.
+
+Artifacts:
+
+- durable reports: `docs/test-reports/agentic-bug-sweep/`
+- ephemeral execution state: `target/agentic-bug-sweep/`
+
 ## Coverage
 
 Coverage is checked per-file against thresholds in `coverage-thresholds.json`.
