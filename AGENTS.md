@@ -7,6 +7,8 @@ Read `README.md` before starting work.
 - Always think/reason in English (set thinking language to English)
 - Source code and docs in English
 - **Bug fixing**: When a bug is discovered, always check related files for similar bugs and propose to the user to inspect them
+- **Plan-time rule review**: Before creating any new plan, reload and review the full coding ruleset (`README.md`, `AGENTS.md`, and the shared rule files under `ai/`). Do this every time a new plan is written, even within the same session; do not rely on memory of an earlier read.
+- **Planning mindset**: When writing a plan, prefer approaches that leave the code cleaner than before. Avoid ad hoc extensions to the current structure; ask what the design would look like from scratch and steer the implementation toward that end state within the task's scope.
 
 ## Context-Efficient Exploration
 
