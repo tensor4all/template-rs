@@ -30,14 +30,18 @@
 
 ## Build Environment
 
-- When a Rust repository is checked out on NFS or another network filesystem,
-  place Cargo build artifacts on local disk rather than inside the repository
-  checkout.
-- Prefer a repo-specific local target directory such as
+- Do not treat NFS or other network filesystems as a normal location for Rust
+  development worktrees. Strongly prefer putting the repository or worktree
+  itself on local disk.
+- If a repository is on NFS or another network filesystem, explicitly warn the
+  user before running heavy Rust commands. State that compile and link times
+  can degrade severely and that local-disk worktrees are strongly preferred.
+- Continue on NFS only if the user explicitly wants to proceed anyway.
+- When proceeding on NFS, place Cargo build artifacts on local disk rather than
+  inside the repository checkout.
+- Prefer a stable repo-specific local target directory such as
   `CARGO_TARGET_DIR=/tmp/<repo>-target` for `cargo build`, `cargo test`,
   `cargo llvm-cov`, and similar heavy commands.
-- Treat this as build hygiene, not an optimization tweak: compile and link
-  times can degrade severely when `target/` lives on network storage.
 
 ## File Organization
 
