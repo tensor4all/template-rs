@@ -14,6 +14,7 @@ Key principles (illustrative, not exhaustive):
 - **Layering** — each crate exposes a deliberate public API. Downstream crates use high-level APIs; they must not bypass layers to access internals. If a detail is needed, evolve the upstream API instead of leaking it.
 - **Separation of Concerns** — each module, file, and function has one clear responsibility.
 - **Fix root causes, not symptoms** — prefer fundamental redesign over ad-hoc patches. When a proper fix requires changing more code, do it.
+- **Design toward a cleaner end state** — when planning a change, prefer an approach that leaves the codebase clearer than it was before. Do not just bolt new behavior onto the current structure because it is already there; step back, ask how you would design that area from scratch, and move the implementation toward that shape within the task's scope.
 - **No speculative backward compatibility** — do not preserve old interfaces or add shims unless the user explicitly asks. Clean up call sites instead.
 
 When in doubt, ask: *"Would an experienced software engineer consider this clean, maintainable, and easy to reason about?"* If not, simplify.
@@ -27,6 +28,7 @@ When in doubt, ask: *"Would an experienced software engineer consider this clean
 ## Startup Context
 
 - At session start, read `README.md`, `AGENTS.md`, and the shared rule files under `ai/`.
+- Before creating any new plan, reload and review the full coding ruleset: `README.md`, `AGENTS.md`, and the shared rule files under `ai/`. Do this every time a new plan is written, even within the same session; do not rely on memory of an earlier read.
 - If the repository contains local AI workflow files, inspect them before acting. This includes:
   - repo-local skill files such as `ai/**/SKILL.md`
   - project-local command docs such as `.claude/commands/*.md`

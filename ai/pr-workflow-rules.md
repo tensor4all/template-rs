@@ -7,6 +7,11 @@
 
 ## Required Checks
 
+Before pushing or creating a PR, reload and review the full coding ruleset:
+`README.md`, `AGENTS.md`, and the shared rule files under `ai/`. Do this every
+time you prepare a PR, even within the same session; do not rely on memory of
+an earlier read.
+
 Before pushing or creating a PR, all of these must pass:
 
 ```bash
