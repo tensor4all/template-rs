@@ -60,8 +60,8 @@ When in doubt, ask: *"Would an experienced software engineer consider this clean
 - When proceeding on NFS, place Cargo build artifacts on local disk rather than
   inside the repository checkout.
 - Prefer a stable repo-specific local target directory such as
-  `CARGO_TARGET_DIR=/tmp/<repo>-target` for `cargo build`, `cargo test`,
-  `cargo llvm-cov`, and similar heavy commands.
+  `CARGO_TARGET_DIR=/tmp/<repo>-target` for `cargo build`, `cargo nextest run`,
+  `cargo test --doc`, `cargo llvm-cov`, and similar heavy commands.
 
 ## File Organization
 

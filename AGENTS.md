@@ -51,13 +51,15 @@ When a file grows large, split it by functionality (e.g., parsing, plan computat
 **Always use `--release` mode for tests** to enable optimizations and speed up trial-and-error cycles.
 
 ```bash
-cargo test --release                    # Full suite
-cargo test --release --test test_name   # Specific test
-cargo test --release --workspace        # All crates
+cargo nextest run --release                    # Full suite
+cargo nextest run --release --test test_name   # Specific test target
+cargo nextest run --release --workspace        # All crates
+cargo test --doc --release --workspace         # Doc tests
 ```
 
 - Private functions: `#[cfg(test)]` module in source file
 - Integration tests: `tests/` directory
+- Use `cargo nextest run` for unit and integration tests; keep doctests on `cargo test --doc`.
 - **Test tolerance changes**: When relaxing test tolerances (unit tests, codecov targets, etc.), always seek explicit user approval before making changes.
 - **Coverage-driven additions**: Meet the threshold with meaningful behavior-focused tests. Do not add filler tests solely to raise coverage numbers.
 
@@ -215,13 +217,14 @@ Before creating a PR, always run these checks locally:
 ```bash
 cargo fmt --all          # Format all code
 cargo clippy --workspace # Check for common issues
-cargo test --release --workspace   # Run all tests
+cargo nextest run --release --workspace --no-fail-fast   # Run unit and integration tests
+cargo test --doc --release --workspace                   # Run doc tests
 ```
 
 **Coverage check (must pass before push):**
 
 ```bash
-cargo llvm-cov --workspace --json --output-path coverage.json
+cargo llvm-cov nextest --workspace --release --json --output-path coverage.json
 python3 scripts/check-coverage.py coverage.json
 ```
 

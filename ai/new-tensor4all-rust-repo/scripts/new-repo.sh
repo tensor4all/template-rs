@@ -188,7 +188,13 @@ ASSETS_SYNCED=1
 if ! run_in_repo cargo fmt --all --check; then
   fail_with_summary 1 "cargo fmt --all --check failed in $DEST_PATH"
 fi
-if ! run_in_repo cargo llvm-cov --workspace --release --json --output-path coverage.json; then
+if ! run_in_repo cargo nextest run --workspace --release --no-fail-fast; then
+  fail_with_summary 1 "cargo nextest run failed in $DEST_PATH"
+fi
+if ! run_in_repo cargo test --doc --workspace --release; then
+  fail_with_summary 1 "cargo test --doc failed in $DEST_PATH"
+fi
+if ! run_in_repo cargo llvm-cov nextest --workspace --release --json --output-path coverage.json; then
   fail_with_summary 1 "cargo llvm-cov failed in $DEST_PATH"
 fi
 if ! run_in_repo python3 scripts/check-coverage.py coverage.json; then

@@ -5,7 +5,7 @@ Template repository for Rust workspace projects in the tensor4all organization.
 ## What's included
 
 - **Cargo workspace** — empty workspace ready to add crates
-- **CI (GitHub Actions)** — fmt, test (ubuntu + macOS), coverage, doc
+- **CI (GitHub Actions)** — fmt, nextest + doctest (ubuntu + macOS), coverage, doc
 - **Coverage checking** — per-file line coverage thresholds via `cargo llvm-cov`
 - **Agent guidelines** — CLAUDE.md / AGENTS.md for AI-assisted development
 
@@ -43,6 +43,15 @@ Artifacts:
 - durable reports: `docs/test-reports/agentic-bug-sweep/`
 - ephemeral execution state: `target/agentic-bug-sweep/`
 
+## Testing
+
+Run unit and integration tests with nextest, and keep doctests as a separate step:
+
+```bash
+cargo nextest run --workspace --release --no-fail-fast
+cargo test --doc --workspace --release
+```
+
 ## Coverage
 
 Coverage is checked per-file against thresholds in `coverage-thresholds.json`.
@@ -50,7 +59,7 @@ Meet the configured threshold with meaningful tests rather than filler assertion
 
 ```bash
 # Run locally
-cargo llvm-cov --workspace --json --output-path coverage.json
+cargo llvm-cov nextest --workspace --release --json --output-path coverage.json
 python3 scripts/check-coverage.py coverage.json
 ```
 

@@ -8,7 +8,8 @@ are illustrative — apply the same reasoning to any new pattern.
 - Use small deterministic inputs for correctness tests.
 - Prefer hard-coded data or seeded RNGs over unseeded randomness.
 - Feature-gate expensive tests.
-- For local trial-and-error loops, `cargo test --release --workspace` is preferred when it materially reduces iteration time.
+- For local trial-and-error loops, prefer `cargo nextest run --release --workspace --no-fail-fast` for unit and integration tests.
+- Run doctests separately with `cargo test --doc --release --workspace`; `nextest` does not replace them.
 
 ## Generic Test Patterns
 
