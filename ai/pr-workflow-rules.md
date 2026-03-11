@@ -16,13 +16,16 @@ Before pushing or creating a PR, all of these must pass:
 
 ```bash
 cargo fmt --all --check
-cargo llvm-cov --workspace --release --json --output-path coverage.json
+cargo nextest run --workspace --release --no-fail-fast
+cargo test --doc --workspace --release
+cargo llvm-cov nextest --workspace --release --json --output-path coverage.json
 python3 scripts/check-coverage.py coverage.json
 cargo doc --workspace --no-deps
 python3 scripts/check-docs-site.py
 ```
 
 If formatting fails, run `cargo fmt --all` and rerun the checks.
+Keep doctests as a dedicated `cargo test --doc` step; `cargo nextest` does not execute them.
 
 ## Repository Settings
 
