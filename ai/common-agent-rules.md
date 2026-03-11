@@ -28,6 +28,17 @@
 - Use `thiserror` for public API error types.
 - Use `anyhow` only for internal glue where typed errors are not part of the public contract.
 
+## Build Environment
+
+- When a Rust repository is checked out on NFS or another network filesystem,
+  place Cargo build artifacts on local disk rather than inside the repository
+  checkout.
+- Prefer a repo-specific local target directory such as
+  `CARGO_TARGET_DIR=/tmp/<repo>-target` for `cargo build`, `cargo test`,
+  `cargo llvm-cov`, and similar heavy commands.
+- Treat this as build hygiene, not an optimization tweak: compile and link
+  times can degrade severely when `target/` lives on network storage.
+
 ## File Organization
 
 Keep source files small and focused. Split by behavior or abstraction boundary, not by arbitrary line count.
