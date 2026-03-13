@@ -67,6 +67,23 @@ When in doubt, ask: *"Would an experienced software engineer consider this clean
 
 Keep source files small and focused. Split by behavior or abstraction boundary, not by arbitrary line count.
 
+- Prefer **feature-first locality** when a human is likely to trace one
+  operation or feature end-to-end. If `svd`, `einsum`, or another concrete
+  feature currently spans many unrelated top-level buckets, reorganize toward a
+  shape where that feature's primal path, AD wiring, builders, result types,
+  and tests live near each other.
+- Do not default to broad buckets such as `api`, `common`, `impls`, `plan`, or
+  `runtime` as the primary structure when they force a single feature to be
+  scattered across the tree. Shared infrastructure should stay small and
+  explicit; feature code should stay local.
+- Optimize module boundaries for **human navigation**, not just mechanical
+  separation of concerns. A developer should be able to answer "where is SVD
+  implemented?" or "where does this reduction's AD rule live?" without reading
+  half the crate.
+- When choosing between `layer-first` and `feature-first`, prefer
+  `feature-first + small shared core` unless the crate is genuinely an
+  infrastructure-only crate with no coherent end-user features.
+
 ## Unit Test Organization
 
 - Keep inline `#[cfg(test)]` blocks only in genuinely tiny leaf modules.
