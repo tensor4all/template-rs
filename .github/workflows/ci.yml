@@ -74,4 +74,4 @@ jobs:
       - name: Install pandoc and graphviz
         run: sudo apt-get update && sudo apt-get install -y pandoc graphviz
       - name: Build docs site
-        run: ./scripts/build_docs_site.sh
+        run: bash scripts/build_docs_site.sh
