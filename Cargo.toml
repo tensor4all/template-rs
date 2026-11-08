@@ -1,3 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/example"]
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
